@@ -3,6 +3,12 @@ function poly_safe_set = Safe_set(ego, lead, road, i)
 % ego: structure that contains all data for the ego vehicle, including
 % dmin, Mode, Option, MPC params, reference velocity, and all useful 
 % physical properties.
+% lead: structure that contains all data for the lead vehicle
+% road: structure that contains all data for the road, in particular
+% position and grade arrays
+% Outputs:
+% poly_safe_set: fitted polynomial coefficients for determining guaranteed 
+% safe following distance
 
 % presetting variables b/c of some weird simulink thing
 % worth checking if I can remove this later
