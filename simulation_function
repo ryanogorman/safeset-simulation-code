@@ -1,18 +1,32 @@
-function [U_out, s_out, v_out, grade_out, velocity_cost, input_cost, jerk_cost] = simulation(safe_set, MPC_controller, i)
-% 
+function [U_out, s_out, v_out, grade_out, velocity_cost, input_cost, jerk_cost] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
+%%% Author: Ryan O'Gorman
+% Inputs:
+% poly_safe_set: the polynomial coefficients defining the safe set
+% MPC_controller: MPC optimizer object
+% ego: structure that contains all data for the ego vehicle
+% lead: structure that contains all data for the lead vehicle
+% road: structure that contains all data for the road
+% i: input from external for loop. Used to determine time and proper indicies to use
 
 % This if statement only runs when time is a multiple of 0.2
 % (0.0,0.2,0.4,0.6...)
+
+%%%%
+Place code for theta_preview in here
+%%%%
+
 theta_ego = theta_preview(1);
-Uprev = Umpc;
+Uprev = Umpc; % again, need to figure out OOP stuff here
+
+time = (i - 1) / ego.Params.freq_sim;
 if time < 0.001
     Uprev = 0;
 end
-i = floor(time*20) + 1;
+
 if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
-    vRefCC_mpc = ones(1,N+1).*refCC;
+    vRefCC_mpc = ones(1,N+1).*ego.refCC;
     
-    if abs(MODE-2) < 0.001
+    if abs(ego.MODE-2) < 0.001
         theta_preview(:) = 0;
     end
     
@@ -20,12 +34,12 @@ if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
 %         vTargetSpeed = priority_speed_brake;
 %     end
 
-    if OPTION == 1 % lead car current & future velocity is exactly known
-        inputs = {vEgo, Position_ego, vRefCC_mpc, vTargetSpeed(i:4:i+40)', sLead, (theta_preview), poly_safe_set, Uprev};
-    elseif OPTION == 2 % lead car current velocity is known, future velocity assumed constant
-        inputs = {vEgo, Position_ego, vRefCC_mpc, vTargetSpeed(i)*ones(1,N+1), sLead, (theta_preview), poly_safe_set, Uprev};
+    if ego.OPTION == 1 % lead car current & future velocity is exactly known
+        inputs = {vEgo, Position_ego, vRefCC_mpc, lead.velocity(i:ego.Params.freq_sim/ego.Params.freq_MPC:i+ego.Params.freq_sim/ego.Params.freq_MPC*10)', sLead, (theta_preview), poly_safe_set, Uprev};
+    elseif ego.OPTION == 2 % lead car current velocity is known, future velocity assumed constant
+        inputs = {vEgo, Position_ego, vRefCC_mpc, lead.velocity(i)*ones(1,N+1), sLead, (theta_preview), poly_safe_set, Uprev};
     end
-    [solutions,diagnostics] = controller_ACC{inputs};
+    [solutions,diagnostics] = MPC_controller{inputs};
     
     Umpc = solutions{1}(1);
     
@@ -43,9 +57,9 @@ vel_MPC = vEgo + dt3/m* (Umpc*1000-ka*vEgo^2-kr*m*g*cos(theta_ego)-m*g*sin(theta
 s = Position_ego + dt3*vel_MPC; % note the sign
 
 % Cost variables
-R_i = 1; 
-R_t = 1;
-R_j = 1;
+R_i = ego.Params.cost_i; 
+R_v = ego.Params.cost_v;
+R_j = ego.Params.cost_j;
 input_cost = abs(Umpc); 
 tracking_cost = abs(vel_MPC - vTargetSpeed(i + 1));
 jerk_cost = abs(Umpc - Uprev);
