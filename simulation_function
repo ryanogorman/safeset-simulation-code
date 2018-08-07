@@ -1,0 +1,63 @@
+function [U_out, s_out, v_out, grade_out, velocity_cost, input_cost, jerk_cost] = simulation(safe_set, MPC_controller, i)
+% 
+
+% This if statement only runs when time is a multiple of 0.2
+% (0.0,0.2,0.4,0.6...)
+theta_ego = theta_preview(1);
+Uprev = Umpc;
+if time < 0.001
+    Uprev = 0;
+end
+i = floor(time*20) + 1;
+if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
+    vRefCC_mpc = ones(1,N+1).*refCC;
+    
+    if abs(MODE-2) < 0.001
+        theta_preview(:) = 0;
+    end
+    
+%     if time >= 7.4
+%         vTargetSpeed = priority_speed_brake;
+%     end
+
+    if OPTION == 1 % lead car current & future velocity is exactly known
+        inputs = {vEgo, Position_ego, vRefCC_mpc, vTargetSpeed(i:4:i+40)', sLead, (theta_preview), poly_safe_set, Uprev};
+    elseif OPTION == 2 % lead car current velocity is known, future velocity assumed constant
+        inputs = {vEgo, Position_ego, vRefCC_mpc, vTargetSpeed(i)*ones(1,N+1), sLead, (theta_preview), poly_safe_set, Uprev};
+    end
+    [solutions,diagnostics] = controller_ACC{inputs};
+    
+    Umpc = solutions{1}(1);
+    
+    % the following is used solely for debugging
+    debug = zeros(3,11);
+    for j = 1:11
+        debug(:,j) = [solutions{2}(j)^2; solutions{2}(j); 1];
+    end
+    safe_debug = (diag(poly_safe_set*debug))';
+    % end of debugging code
+end
+% This code is run 20Hz with simulink/prescan, Umpc only changes every 0.2
+% seconds (5Hz).
+vel_MPC = vEgo + dt3/m* (Umpc*1000-ka*vEgo^2-kr*m*g*cos(theta_ego)-m*g*sin(theta_ego));
+s = Position_ego + dt3*vel_MPC; % note the sign
+
+% Cost variables
+R_i = 1; 
+R_t = 1;
+R_j = 1;
+input_cost = abs(Umpc); 
+tracking_cost = abs(vel_MPC - vTargetSpeed(i + 1));
+jerk_cost = abs(Umpc - Uprev);
+combined_cost = R_i*input_cost + R_t*tracking_cost + R_j*jerk_cost;
+cost_array = [input_cost, tracking_cost, jerk_cost, combined_cost];
+
+%% Plotting variables - used for display and debugging
+%Umpc will already be defined
+grade_angle_plot = theta_preview(1);
+safe_dist_plot = poly_safe_set(1,1)*vEgo^2 + poly_safe_set(1,2)*vEgo + poly_safe_set(1,3);
+% if safe_dist_plot < 4.425 && safe_dist_plot ~= 0
+%     safe_dist_plot = 4.425;
+% end
+Uout = Umpc;
+end
