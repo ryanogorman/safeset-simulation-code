@@ -1,4 +1,4 @@
-function [U_out, s_out, v_out, grade_out, velocity_cost, input_cost, jerk_cost] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
+function [ego, U_out, s_out, v_out, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
 %%% Author: Ryan O'Gorman
 % Inputs:
 % poly_safe_set: the polynomial coefficients defining the safe set
@@ -20,7 +20,8 @@ theta_preview = atan(grade_preview / 100);
 %%%%
 
 theta_ego = theta_preview(1);
-Uprev = Umpc; % again, need to figure out OOP stuff here
+Uprev = ego.states.U; % again, need to figure out OOP stuff here
+%vel_MPC = ego.states.vel;
 
 time = (i - 1) / ego.Params.freq_sim;
 if time < 0.001
@@ -39,13 +40,13 @@ if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
 %     end
 
     if ego.OPTION == 1 % lead car current & future velocity is exactly known
-        inputs = {vEgo, Position_ego, vRefCC_mpc, lead.velocity(i:ego.Params.freq_sim/ego.Params.freq_MPC:i+ego.Params.freq_sim/ego.Params.freq_MPC*10)', sLead, (theta_preview), poly_safe_set, Uprev};
+        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity(i:ego.Params.freq_sim/ego.Params.freq_MPC:i+ego.Params.freq_sim/ego.Params.freq_MPC*10)', lead.states.pos, (theta_preview), poly_safe_set, Uprev};
     elseif ego.OPTION == 2 % lead car current velocity is known, future velocity assumed constant
-        inputs = {vEgo, Position_ego, vRefCC_mpc, lead.velocity(i)*ones(1,N+1), sLead, (theta_preview), poly_safe_set, Uprev};
+        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity(i)*ones(1,N+1), lead.states.pos, (theta_preview), poly_safe_set, Uprev};
     end
     [solutions,diagnostics] = MPC_controller{inputs};
     
-    Umpc = solutions{1}(1);
+    ego.states.U = solutions{1}(1);
     
     % the following is used solely for debugging
     debug = zeros(3,11);
@@ -57,25 +58,24 @@ if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
 end
 % This code is run 20Hz with simulink/prescan, Umpc only changes every 0.2
 % seconds (5Hz).
-vel_MPC = vEgo + dt3/m* (Umpc*1000-ka*vEgo^2-kr*m*g*cos(theta_ego)-m*g*sin(theta_ego));
-s = Position_ego + dt3*vel_MPC; % note the sign
+ego.states.vel = ego.states.vel + ego.Params.freq_sim/ego.m* (ego.states.U*1000-ego.ka*ego.states.vel^2-ego.kr*ego.m*g*cos(theta_ego)-ego.m*g*sin(theta_ego));
+ego.states.pos = ego.states.pos + ego.Params.freq_sim*ego.states.vel; % note the sign
 
 % Cost variables
 R_i = ego.Params.cost_i; 
 R_v = ego.Params.cost_v;
 R_j = ego.Params.cost_j;
 input_cost = abs(Umpc); 
-tracking_cost = abs(vel_MPC - vTargetSpeed(i + 1));
-jerk_cost = abs(Umpc - Uprev);
+tracking_cost = abs(ego.states.vel - vTargetSpeed(i + 1)); % need a clever way of doing vTS
+jerk_cost = abs(ego.states.U - Uprev);
 combined_cost = R_i*input_cost + R_t*tracking_cost + R_j*jerk_cost;
 cost_array = [input_cost, tracking_cost, jerk_cost, combined_cost];
 
 %% Plotting variables - used for display and debugging
-%Umpc will already be defined
-grade_angle_plot = theta_preview(1);
+grade_out = tan(theta_preview(1) * 100);
 safe_dist_plot = poly_safe_set(1,1)*vEgo^2 + poly_safe_set(1,2)*vEgo + poly_safe_set(1,3);
 % if safe_dist_plot < 4.425 && safe_dist_plot ~= 0
 %     safe_dist_plot = 4.425;
 % end
-Uout = Umpc;
+
 end
