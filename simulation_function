@@ -13,6 +13,10 @@ function [U_out, s_out, v_out, grade_out, velocity_cost, input_cost, jerk_cost] 
 
 %%%%
 Place code for theta_preview in here
+pos_preview = ego.states.pos + ego.states.vel * (0:10);
+grade_preview = interp1(road.position, road.grade, pos_preview, 'linear', 'extrap');
+% Convert to radians
+theta_preview = atan(grade_preview / 100);
 %%%%
 
 theta_ego = theta_preview(1);
