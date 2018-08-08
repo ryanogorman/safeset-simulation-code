@@ -1,4 +1,4 @@
-function MPC_controller = MPC_setup(Params)
+function MPC_controller = MPC_setup(Params, ego)
 %%% Author: Ryan O'Gorman <ryanogorman@berkeley.edu> %%%
 % Params structure will contain the fields:
 % N: MPC horizon length
@@ -8,10 +8,19 @@ function MPC_controller = MPC_setup(Params)
 % P: Terminal cost for velocity deviance
 % R_i: Value punishing input force
 % R_j: Value punishing jerk
+% Ego structure will contain all data for the ego vehicle
 
-if mod(params.freq_sim/params.freq_MPC,1)
+if mod(Params.freq_sim/Params.freq_MPC,1)
    error('freq_sim must be divisible by freq_MPC')
 end
+
+delta_t = 1 / Params.freq_MPC;
+
+Q = Params.Q;
+R = Params.R;
+RR = Params.RR;
+P = Params.P;
+N = Params.N
 
 nx = 1; % Number of states
 nu = 1; % Number of inputs
@@ -48,16 +57,14 @@ objective = 0;
 % so that s(k+1) = s(k) - x(k)*delta_t <-- Note the change in sign
 for k = 1:N
     if k == 1
-        %objective = objective + (x{k}-vLead_var{k})'*Q*(x{k}-vLead_var{k}) + u{k}'*R*u{k} + (u{k}-U_i)'*RR*(u{k}-U_i);
-        objective = 0;
+        objective = objective + (x{k}-vLead_var{k})'*Q*(x{k}-vLead_var{k}) + u{k}'*R*u{k} + (u{k}-U_i)'*RR*(u{k}-U_i);
     else
-        %objective = objective + (x{k}-vLead_var{k})'*Q*(x{k}-vLead_var{k}) + u{k}'*R*u{k} + (u{k}-u{k-1})'*RR*(u{k}-u{k-1});
-        objective = 0;
+        objective = objective + (x{k}-vLead_var{k})'*Q*(x{k}-vLead_var{k}) + u{k}'*R*u{k} + (u{k}-u{k-1})'*RR*(u{k}-u{k-1});
     end
     constraints = [constraints, s{k+1} == s{k} + delta_t*x{k}];
-    constraints = [constraints, x{k+1} == x{k}+ delta_t./m*(u{k}*1000 - ka*x{k}^2 - m*g*kr*cos(theta_var{k})-m*g*sin(theta_var{k}))];
+    constraints = [constraints, x{k+1} == x{k}+ delta_t./ego.m*(u{k}*1000 - ego.ka*x{k}^2 - ego.m*g*ego.kr*cos(theta_var{k})-ego.m*g*sin(theta_var{k}))];
         
-    constraints = [constraints, Vmin<=x{k+1}<=Vmax]; 
+    constraints = [constraints, ego.Vmin<=x{k+1}<=ego.Vmax]; 
     constraints = [constraints,  u{k}<=Umax/1000, Umin/1000<=u{k}]; 
     %constraints = [constraints, epsi >= 0]; 
        
