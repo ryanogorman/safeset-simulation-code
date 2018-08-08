@@ -1,4 +1,4 @@
-function [ego, U_out, s_out, v_out, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
+function [ego, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
 %%% Author: Ryan O'Gorman
 % Inputs:
 % poly_safe_set: the polynomial coefficients defining the safe set
@@ -68,7 +68,7 @@ R_j = ego.Params.cost_j;
 input_cost = abs(Umpc); 
 tracking_cost = abs(ego.states.vel - lead.velocity(i + 1)); 
 jerk_cost = abs(ego.states.U - Uprev);
-combined_cost = R_i*input_cost + R_t*tracking_cost + R_j*jerk_cost;
+combined_cost = R_i*input_cost + R_v*tracking_cost + R_j*jerk_cost;
 cost_array = [input_cost, tracking_cost, jerk_cost, combined_cost];
 
 %% Plotting variables - used for display and debugging
