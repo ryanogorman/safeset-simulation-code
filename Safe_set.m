@@ -10,6 +10,7 @@ function poly_safe_set = Safe_set(ego, lead, road, i)
 % poly_safe_set: fitted polynomial coefficients for determining guaranteed 
 % safe following distance
 
+N = ego.Params.N;
 % presetting variables b/c of some weird simulink thing
 % worth checking if I can remove this later
 sLead_predict = zeros(1,N+1);
@@ -33,7 +34,7 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
     % velocity profile.
     if ego.OPTION == 1
         % The exact future velocity is known
-        V01 = lead.velocity(i:mult:i+mult*10); % preview of v1 for i to i+Np during the prediction horizon
+        V01 = lead.velocity_profile(i:mult:i+mult*10); % preview of v1 for i to i+Np during the prediction horizon
     elseif ego.OPTION == 2
         % Current velocity known, future velocity assumed constant.
         V01 = lead.velocity(i)*ones(1,N+1);
@@ -42,7 +43,7 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
         error('Invalid Option')
     end
     
-    sLead_predict(1) = sLead; % come back to this later
+    sLead_predict(1) = lead.states.pos; % come back to this later
     for ti = 1:N
         sLead_predict(ti+1) = sLead_predict(ti) + V01(ti) * delta_t; % recall from MPC code that s(k+1) = s(k) + v(k)*delta_t
     end
@@ -55,7 +56,8 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
         dt2 = delta_t / 10; % discretization time for computing the safe set
         while V1_emg(k) >=0 % while the car has forward motion
             if abs(ego.MODE - 1) <= 0.001
-                a01 = interp1(road.position, road.theta, S1_emg(k), 'linear', 0); % road angle (rad)
+                a01 = interp1(road.position, road.Grade, S1_emg(k), 'linear', 0); % road angle (rad)
+                a01 = atan(a01/100);
             else
                 a01 = 0;
             end
@@ -69,13 +71,14 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
        V2_emg(h) = 0;
        dsafe(h) = (S1_emg(1)-S2_emg(h)); % safe distance
        % backward integration of the follower vehicle EOM
-       while V2_emg(h) < Vmax 
+       while V2_emg(h) < ego.Vmax 
         if abs(ego.MODE - 1) <= 0.001
-            a02 = interp1(road.position, road.theta, S2_emg(h),'linear', 0); % road angle (rad) for ego car
+            a02 = interp1(road.position, road.Grade, S2_emg(h),'linear', 0); % road angle (rad) for ego car
+            a02 = atan(a02);
         else
             a02 = 0;
         end
-        V2_emg(h+1)= V2_emg(h)-dt2/m*(ego.Umin-ego.kr*ego.m*g*cos(a02)-ego.ka*V2_emg(h)^2-ego.m*g*sin(a02));
+        V2_emg(h+1)= V2_emg(h)-dt2/ego.m*(ego.Umin-ego.kr*ego.m*g*cos(a02)-ego.ka*V2_emg(h)^2-ego.m*g*sin(a02));
         S2_emg(h+1) = S2_emg(h)-dt2* V2_emg(h);
         h = h+1; 
         dsafe(h) = (S1_emg(1)-S2_emg(h));
