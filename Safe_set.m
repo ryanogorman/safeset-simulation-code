@@ -21,7 +21,7 @@ dsafe = zeros(1,300);
 %
 poly_safe_set = zeros(N+1,3); % Initializing variable. This is output when time is not a multiple of 0.2
 delta_t = 1 / ego.Params.freq_MPC; % Time step used to calculate safe-set
-
+dmin = ego.l/2 + lead.l/2 + ego.dmin;
 g = 9.81;
 
 time = (i - 1)/ego.Params.freq_sim;
@@ -55,7 +55,7 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
         dt2 = delta_t / 10; % discretization time for computing the safe set
         while V1_emg(k) >=0 % while the car has forward motion
             if abs(ego.MODE - 1) <= 0.001
-                a01 = interp1(road.position, road.theta, S1_emg(k), 'linear', 'extrap'); % road angle (rad)
+                a01 = interp1(road.position, road.theta, S1_emg(k), 'linear', 0); % road angle (rad)
             else
                 a01 = 0;
             end
@@ -71,11 +71,11 @@ if abs(floor(time*ego.Params.freq_MPC) - time*ego.Params.freq_MPC) < 0.001
        % backward integration of the follower vehicle EOM
        while V2_emg(h) < Vmax 
         if abs(ego.MODE - 1) <= 0.001
-            a02 = interp1(road.position, road.theta, S2_emg(h),'linear', 'extrap' ); % road angle (rad) for ego car
+            a02 = interp1(road.position, road.theta, S2_emg(h),'linear', 0); % road angle (rad) for ego car
         else
             a02 = 0;
         end
-        V2_emg(h+1)= V2_emg(h)-dt2/m*(Umin-ego.kr*ego.m*g*cos(a02)-ego.ka*V2_emg(h)^2-ego.m*g*sin(a02));
+        V2_emg(h+1)= V2_emg(h)-dt2/m*(ego.Umin-ego.kr*ego.m*g*cos(a02)-ego.ka*V2_emg(h)^2-ego.m*g*sin(a02));
         S2_emg(h+1) = S2_emg(h)-dt2* V2_emg(h);
         h = h+1; 
         dsafe(h) = (S1_emg(1)-S2_emg(h));
