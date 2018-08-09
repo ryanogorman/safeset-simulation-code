@@ -1,4 +1,4 @@
-function MPC_controller = MPC_setup(Params, ego)
+function controller_ACC = MPC_setup(Params, ego, lead_l)
 %%% Author: Ryan O'Gorman <ryanogorman@berkeley.edu> %%%
 % Params structure will contain the fields:
 % N: MPC horizon length
@@ -15,12 +15,13 @@ if mod(Params.freq_sim/Params.freq_MPC,1)
 end
 
 delta_t = 1 / Params.freq_MPC;
+g = 9.81;
 
 Q = Params.Q;
 R = Params.R;
 RR = Params.RR;
 P = Params.P;
-N = Params.N
+N = Params.N;
 
 nx = 1; % Number of states
 nu = 1; % Number of inputs
@@ -65,7 +66,7 @@ for k = 1:N
     constraints = [constraints, x{k+1} == x{k}+ delta_t./ego.m*(u{k}*1000 - ego.ka*x{k}^2 - ego.m*g*ego.kr*cos(theta_var{k})-ego.m*g*sin(theta_var{k}))];
         
     constraints = [constraints, ego.Vmin<=x{k+1}<=ego.Vmax]; 
-    constraints = [constraints,  u{k}<=Umax/1000, Umin/1000<=u{k}]; 
+    constraints = [constraints,  u{k}<=ego.Umax/1000, ego.Umin/1000<=u{k}]; 
     %constraints = [constraints, epsi >= 0]; 
        
 %         if ((poly_safe_set_var(k+1,1)*(x{k+1})^2+poly_safe_set_var(k+1,2)*(x{k+1})+poly_safe_set_var(k+1,3))) >= 4.425
@@ -78,15 +79,15 @@ for k = 1:N
     constraints = [constraints, sLead_var{k+1} == sLead_var{k} + delta_t*vLead_var{k}];
     constraints = [constraints , (sLead_var{k+1} - s{k+1}) >= (poly_safe_set_var1(k+1,1)*(x{k+1})^2+poly_safe_set_var1(k+1,2)*(x{k+1})+poly_safe_set_var1(k+1,3))];
         
-    constraints = [constraints, (sLead_var{k+1} - s{k+1}) <= 4.425 + 3.5];
-    constraints = [constraints, (sLead_var{k+1} - s{k+1}) >= 4.425 + 0.1]; % Hard collision constraint
+    constraints = [constraints, (sLead_var{k+1} - s{k+1}) <= ego.l/2 + lead_l/2 + 10];
+    constraints = [constraints, (sLead_var{k+1} - s{k+1}) >= ego.l/2 + lead_l/2 + 0.1]; % Hard collision constraint
 end
-
-    
+  
 objective = objective + (x{N+1}-vLead_var{N+1})'*P*(x{N+1}-vLead_var{N+1}); % Terminal cost
     
 parameters_in = {x{1}, s{1}, [r{:}], [vLead_var{:}], sLead_var{1}, [theta_var{:}], poly_safe_set_var, U_i};
 
 solutions_out = {[u{:}], [x{:}], [s{:}], [sLead_var{:}]};
 % ipopt is currently being used as the solver
-controller_ACC = optimizer(constraints, objective, sdpsettings('solver','ipopt','verbos',0),parameters_in,solutions_out);
+controller_ACC = optimizer(constraints, objective, sdpsettings('solver','fmincon','verbos',0),parameters_in,solutions_out);
+
