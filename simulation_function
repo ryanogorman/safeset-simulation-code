@@ -1,5 +1,5 @@
 function [ego, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
-%%% Author: Ryan O'Gorman
+%%% Author: Ryan O'Gorman %%%
 % Inputs:
 % poly_safe_set: the polynomial coefficients defining the safe set
 % MPC_controller: MPC optimizer object
@@ -11,10 +11,12 @@ function [ego, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller
 % This if statement only runs when time is a multiple of 0.2
 % (0.0,0.2,0.4,0.6...)
 
+N = ego.Params.N;
+g = 9.81;
 %%%%
-Place code for theta_preview in here
+% Place code for theta_preview in here
 pos_preview = ego.states.pos + ego.states.vel * (0:10);
-grade_preview = interp1(road.position, road.grade, pos_preview, 'linear', 'extrap');
+grade_preview = interp1(road.position, road.Grade, pos_preview, 'linear', 'extrap');
 % Convert to radians
 theta_preview = atan(grade_preview / 100);
 %%%%
@@ -40,9 +42,9 @@ if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
 %     end
 
     if ego.OPTION == 1 % lead car current & future velocity is exactly known
-        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity(i:ego.Params.freq_sim/ego.Params.freq_MPC:i+ego.Params.freq_sim/ego.Params.freq_MPC*10)', lead.states.pos, (theta_preview), poly_safe_set, Uprev};
+        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity_profile(i:ego.Params.freq_sim/ego.Params.freq_MPC:i+ego.Params.freq_sim/ego.Params.freq_MPC*10), lead.states.pos, (theta_preview), poly_safe_set, Uprev};
     elseif ego.OPTION == 2 % lead car current velocity is known, future velocity assumed constant
-        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity(i)*ones(1,N+1), lead.states.pos, (theta_preview), poly_safe_set, Uprev};
+        inputs = {ego.states.vel, ego.states.pos, vRefCC_mpc, lead.velocity_profile(i)*ones(1,N+1), lead.states.pos, (theta_preview), poly_safe_set, Uprev};
     end
     [solutions,diagnostics] = MPC_controller{inputs};
     
@@ -65,8 +67,8 @@ ego.states.pos = ego.states.pos + ego.Params.freq_sim*ego.states.vel; % note the
 R_i = ego.Params.cost_i; 
 R_v = ego.Params.cost_v;
 R_j = ego.Params.cost_j;
-input_cost = abs(Umpc); 
-tracking_cost = abs(ego.states.vel - lead.velocity(i + 1)); 
+input_cost = abs(ego.states.U); 
+tracking_cost = abs(ego.states.vel - lead.velocity_profile(i + 1)); 
 jerk_cost = abs(ego.states.U - Uprev);
 combined_cost = R_i*input_cost + R_v*tracking_cost + R_j*jerk_cost;
 cost_array = [input_cost, tracking_cost, jerk_cost, combined_cost];
