@@ -4,7 +4,7 @@ road_setup;
 MPC_controller = MPC_setup(ego.Params, ego, lead.l);
 for i = 1:length(lead.velocity_profile)
     poly_safe_set = Safe_set(ego, lead, road, i);
-    [ego, grade_out, safe_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i);
+    [ego, lead, grade_out, safe_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i);
     U_print(i) = ego.states.U;
     s_print(i) = ego.states.pos;
     v_print(i) = ego.states.vel;
