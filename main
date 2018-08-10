@@ -1,11 +1,15 @@
-MPC_controller = MPC_setup(ego.Params, ego);
-for i = 1:length(lead.velocity)
+ego_setup;
+lead_set_up;
+road_setup;
+MPC_controller = MPC_setup(ego.Params, ego, lead.l);
+for i = 1:length(lead.velocity_profile)
     poly_safe_set = Safe_set(ego, lead, road, i);
-    [ego, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i);
+    [ego, grade_out, safe_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i);
     U_print(i) = ego.states.U;
     s_print(i) = ego.states.pos;
     v_print(i) = ego.states.vel;
     grade_print(i) = grade_out;
+    safe_print(i) = safe_out;
     input_cost(i) = cost_array(1);
     tracking_cost(i) = cost_array(2);
     jerk_cost(i) = cost_array(3);
@@ -15,3 +19,4 @@ input_cost_print = cumsum(input_cost);
 tracking_cost_print = cumsum(tracking_cost);
 jerk_cost_print = cumsum(jerk_cost);
 total_cost_print = cumsum(total_cost);
+
