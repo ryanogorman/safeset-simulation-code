@@ -1,4 +1,4 @@
-function [ego, grade_out, safe_dist_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
+function [ego, lead, grade_out, safe_dist_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
 %%% Author: Ryan O'Gorman %%%
 % Inputs:
 % poly_safe_set: the polynomial coefficients defining the safe set
@@ -51,17 +51,19 @@ if abs(floor(time*5) - time*5) < 0.001 % the 0.001 is used as a tolerence
     ego.states.U = solutions{1}(1);
     
     % the following is used solely for debugging
-    debug = zeros(3,11);
-    for j = 1:11
-        debug(:,j) = [solutions{2}(j)^2; solutions{2}(j); 1];
-    end
-    safe_debug = (diag(poly_safe_set*debug))';
+%     debug = zeros(3,11);
+%     for j = 1:11
+%         debug(:,j) = [solutions{2}(j)^2; solutions{2}(j); 1];
+%     end
+%     safe_debug = (diag(poly_safe_set*debug))';
     % end of debugging code
 end
 % This code is run 20Hz with simulink/prescan, Umpc only changes every 0.2
 % seconds (5Hz).
-ego.states.vel = ego.states.vel + ego.Params.freq_sim/ego.m* (ego.states.U*1000-ego.ka*ego.states.vel^2-ego.kr*ego.m*g*cos(theta_ego)-ego.m*g*sin(theta_ego));
-ego.states.pos = ego.states.pos + ego.Params.freq_sim*ego.states.vel; % note the sign
+ego.states.vel = ego.states.vel + 1/ego.Params.freq_sim/ego.m* (ego.states.U*1000-ego.ka*ego.states.vel^2-ego.kr*ego.m*g*cos(theta_ego)-ego.m*g*sin(theta_ego));
+ego.states.pos = ego.states.pos + 1/ego.Params.freq_sim*ego.states.vel;
+lead.states.vel = lead.velocity_profile(i);
+lead.states.pos = lead.states.pos + 1/ego.Params.freq_sim*lead.states.vel;
 
 % Cost variables
 R_i = ego.Params.cost_i; 
