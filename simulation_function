@@ -1,4 +1,4 @@
-function [ego, grade_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
+function [ego, grade_out, safe_dist_out, cost_array] = simulation(poly_safe_set, MPC_controller, ego, lead, road, i)
 %%% Author: Ryan O'Gorman %%%
 % Inputs:
 % poly_safe_set: the polynomial coefficients defining the safe set
@@ -75,7 +75,7 @@ cost_array = [input_cost, tracking_cost, jerk_cost, combined_cost];
 
 %% Plotting variables - used for display and debugging
 grade_out = tan(theta_preview(1) * 100);
-safe_dist_plot = poly_safe_set(1,1)*vEgo^2 + poly_safe_set(1,2)*vEgo + poly_safe_set(1,3);
+safe_dist_out = poly_safe_set(1,1)*ego.states.vel^2 + poly_safe_set(1,2)*ego.states.vel + poly_safe_set(1,3);
 % if safe_dist_plot < 4.425 && safe_dist_plot ~= 0
 %     safe_dist_plot = 4.425;
 % end
